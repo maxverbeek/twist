@@ -85,9 +85,9 @@ class Slash
 
 		foreach ($lines as &$line)
 		{
-			foreach ($this->tasks as $task)
+			if ($this->parsable($line))
 			{
-				if ($this->parsable($line))
+				foreach ($this->tasks as $task)
 				{
 					$line = $this->{$task}($line);
 				}
@@ -177,6 +177,20 @@ class Slash
 		return "<?php {$empty} = true; foreach ({$array} as {$iterated}): {$empty} = false; ?>";
 	}
 
+	protected function compileWhileStatements($statement)
+	{
+		$callback = function ($match)
+		{
+			$this->pushEnding('<?php endwhile; ?>');
+
+			return "<?php while ({$match[1]}): ?>";
+		};
+
+		$pattern = "/while (.*)/";
+
+		return preg_replace_callback($pattern, $callback, $statement);
+	}
+
 	protected function compileIfStatements($statement)
 	{
 		$callback = function ($match)
@@ -199,20 +213,6 @@ class Slash
 	protected function compileElseStatements($statement)
 	{
 		return '<?php else: ?>';
-	}
-
-	protected function compileWhileStatements($statement)
-	{
-		$callback = function ($match)
-		{
-			$this->pushEnding('<?php endwhile; ?>');
-
-			return "<?php while ({$match[1]}): ?>";
-		};
-
-		$pattern = "/while (.*)/";
-
-		return preg_replace_callback($pattern, $callback, $statement);
 	}
 
 	protected function parseEmptyStatements($line)
