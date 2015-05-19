@@ -2,6 +2,7 @@
 
 use Twist\Slash\Exceptions\SlashSyntaxError;
 use Twist\Slash\Exceptions\IndentationException;
+use Closure;
 
 class Slash
 {
@@ -12,6 +13,8 @@ class Slash
 	 */
 	protected $tasks = [
 		'parseLogicStatements',
+		'parseEmptyStatements',
+		'parseEndStatements',
 		'parseEchoes',
 	];
 
@@ -27,27 +30,18 @@ class Slash
 	protected $comment = ['{#', '#}'];
 
 	/**
-	 * Current indentation level for the compiler
-	 *
-	 * @var integer
-	 */
-	protected $indentation = 0;
-
-	protected $oldIndentation = 0;
-
-	/**
-	 * Stuff that gets inserted when outdenting
+	 * Stuff that replaces the end tag
 	 *
 	 * @var array
 	 */
-	protected $closingTags = [];
+	protected $endings = [];
 
 	/**
-	 * Default indentation pattern (1 tab or 4 spaces)
+	 * Counter to give foreach loops an ID (used for empty statements)
 	 *
-	 * @var string
+	 * @var integer
 	 */
-	protected $indentPattern = '\t| {4}';
+	protected $foreachCount = 0;
 
 	/**
 	 * Turns slash code into valid PHP
@@ -86,102 +80,40 @@ class Slash
 
 	protected function parse($content)
 	{
-		$lines = preg_split("/[\r\n]+/", $content);
+		$lines = preg_split('/[\r\n]+/', $content);
 
-		$lines = $this->checkIndentationPattern($lines);
-
-		foreach ($lines as $index => &$line)
+		foreach ($lines as &$line)
 		{
-			$tags = $this->getExpiredClosingTags($line);
-
-			if ($this->parsable($line))
+			foreach ($this->tasks as $task)
 			{
-				$line = $this->parseLine($line, $index);
+				if ($this->parsable($line))
+				{
+					$line = $this->{$task}($line);
+				}
 			}
-
-			$line = $tags . $line;
 		}
-
-		$lines = $this->appendAllCloseTags($lines);
 
 		return implode(PHP_EOL, $lines);
 	}
 
-	public function checkIndentationPattern($lines)
+	protected function pushEnding($ending)
 	{
-		list($open, $close) = array_map('preg_quote', $this->logic);
-
-		if (preg_match("/^{$open}[\t ]*indent[\t ]*\'([^\']+)\'[\t ]*{$close}/", $lines[0], $matches))
-		{
-			$this->indentPattern = $matches[1];
-			unset($lines[0]);
-		}
-
-		return $lines;
+		$this->endings[] = $ending;
 	}
 
-	protected function appendAllCloseTags($lines)
+	protected function popEnding()
 	{
-		while ($this->indentation > 0)
+		$ending = array_pop($this->endings);
+
+		if ($ending instanceof Closure)
 		{
-			$lines[] = $this->getClosingTag($this->indentation--);
+			// If the ending is a closure, we'll execute it.
+			// this allows for extra logic being performed
+			// right before the ending is inserted.
+			$ending = $ending();
 		}
 
-		return $lines;
-	}
-
-	protected function getExpiredClosingTags($line)
-	{
-		$previous = $this->indentation;
-		$this->indentation = $this->getIndentation($line);
-
-		$tags = '';
-
-		while ($this->indentation < $previous)
-		{
-			$tags .= $this->getClosingTag($previous--);
-		}
-
-		return $tags;
-	}
-
-	/**
-	 * Compile the line of slash into valid PHP
-	 *
-	 * @param  string $line Slash
-	 *
-	 * @return string       PHP
-	 */
-	protected function parseLine($line, $index)
-	{
-		$this->currentLineNumber = $index + 1;
-		$this->currentLine = $line;
-
-		foreach ($this->tasks as $task)
-		{
-			$line = $this->{$task}($line);
-		}
-
-		return $line;
-	}
-
-	protected function getClosingTag($level)
-	{
-		if (isset($this->closingTags[$level]))
-		{
-			$tag = $this->closingTags[$level];
-
-			unset($this->closingTags[$level]);
-
-			return $tag;
-		}
-
-		return '';
-	}
-
-	protected function newTag($tag)
-	{
-		$this->closingTags[$this->indentation] = $tag;
+		return $ending;
 	}
 
 	protected function parseEchoes($line)
@@ -204,77 +136,162 @@ class Slash
 
 		$callback = function ($matches)
 		{
-			if (preg_match('/^(?:where|for|while|if|else|elseif)/', $matches[1], $clause))
-
-			return $this->{'create'.ucfirst($clause[0]).'Logic'}($matches[1]);
-
-			else
-
-			throw new SlashSyntaxError("invalid statement \"{$matches[1]}\"", $this->currentLineNumber, $this->currentLine);
+			return $this->{'compile'.ucfirst($matches[2]).'Statements'}($matches[1]);
 		};
 
-		return preg_replace_callback("/{$open}[\t ]*(.+?)[\t ]*{$close}/", $callback, $line);
+		return preg_replace_callback("/{$open}[\t ]*((for|while|if|elseif|else)[\t ]+.*?)[\t ]*{$close}/", $callback, $line);
 	}
 
-	protected function createForLogic($statement)
+	protected function compileForStatements($statement)
 	{
-		// From PHP wiki
-		$var = '\$[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*';
+		// PHP wiki (language.variables.basic)
+		$var = "\\$[a-zA-Z_\x7f-\xff][a-zA-Z0-9_\x7f-\xff]*";
 
-		$original = $statement;
-
-		$statement = preg_replace("/^for ({$var}) in (\d+)$/i", '<?php for($1 = 1; $1 <= $2; $1++): ?>', $statement);
-
-		if ($original !== $statement)
+		if (preg_match("/for ({$var}) in (\d+)/", $statement, $match))
 		{
-			$this->newTag('<?php endfor; ?>');
-
-			return $statement;
+			return $this->compileFor($statement, $match[1], $match[2]);
 		}
 
-		$statement = preg_replace("/^for ({$var}) in ({$var})$/i", '<?php foreach ($2 as $1): ?>', $statement);
-
-		$statement = preg_replace("/^for ({$var})[\t ]*:[\t ]*({$var}) in ({$var})$/i", '<?php foreach ($3 as $1 => $2): ?>', $statement);
-
-		if ($original !== $statement)
+		elseif (preg_match($pattern = "/for ({$var})(?:[\t ]*:[\t ]*({$var}))? in (.*)/", $statement, $match))
 		{
-			$this->newTag('<?php endforeach; ?>');
-
-			return $statement;
+			return $this->compileForeach($statement, $match);
 		}
 
-		throw new SlashSyntaxError("Invalid for loop", $this->currentLineNumber, $this->currentLine);
+		else
+		{
+			echo "Iets is pittig verneukt en het is niet jurryts moeder";
+			echo $statement . '  ' . $pattern;
+			echo PHP_EOL;
+		}
 	}
 
-	protected function parseComments($line)
+	protected function compileFor($statement, $var, $to)
 	{
-		list($open, $close) = array_map('preg_quote', $this->comment);
+		$this->pushEnding('<?php endfor; ?>');
+
+		return "<?php for ({$var} = 1; {$var} <= {$to}; {$var}++): ?>";
+	}
+
+	protected function compileForeach($statement, $matches)
+	{
+		if (isset($matches[3])) list(, $key, $value, $array) = $matches;
+
+		else list(, $value, $array) = $matches;
+
+		$empty = $this->createEmptyVariable($this->foreachCount++);
+
+		$this->pushEnding(function () {
+			$this->foreachCount--;
+			return '<?php endforeach; ?>';
+		});
+
+		$iterated = isset($key) ? "{$key} => {$value}" : $value;
+
+		return "<?php {$empty} = true; foreach ({$array} as {$iterated}): {$empty} = false; ?>";
+	}
+
+	protected function compileIfStatements($statement)
+	{
+		$callback = function ($match)
+		{
+			$this->pushEnding('<?php endif; ?>');
+
+			return "<?php if ({$match[1]}): ?>";
+		};
+
+		$pattern = "/if (.*)/";
+
+		return preg_replace_callback($pattern, $callback, $statement);
+	}
+
+	protected function compileElseifStatements($statement)
+	{
+		return preg_replace("/elseif (.*)/", "<?php elseif (\\1): ?>", $statement);
+	}
+
+	protected function compileElseStatements($statement)
+	{
+		return '<?php else: ?>';
+	}
+
+	protected function compileWhileStatements($statement)
+	{
+		$callback = function ($match)
+		{
+			$this->pushEnding('<?php endwhile; ?>');
+
+			return "<?php while ({$match[1]}): ?>";
+		};
+
+		$pattern = "/while (.*)/";
+
+		return preg_replace_callback($pattern, $callback, $statement);
+	}
+
+	protected function parseEmptyStatements($line)
+	{
+		$callback = function ($match)
+		{
+			$empty = $this->createEmptyVariable(--$this->foreachCount);
+
+			$this->popEnding();
+			$this->pushEnding('<?php endif; ?>');
+
+			return "<?php endforeach; if ({$empty}): ?>";
+		};
+
+		list($open, $close) = array_map('preg_quote', $this->logic);
+
+		$ws = '[\t ]*';
+
+		$pattern = "/{$open}{$ws}empty{$ws}{$close}/";
+
+		return preg_replace_callback($pattern, $callback, $line);
+	}
+
+	protected function parseEndStatements($line)
+	{
+		$callback = function ($match)
+		{
+			return $this->popEnding();
+		};
+
+		list($open, $close) = array_map('preg_quote', $this->logic);
+
+		$ws = '[\t ]*';
+
+		$pattern = "/{$open}{$ws}end{$ws}{$close}/";
+
+		return preg_replace_callback($pattern, $callback, $line);
+	}
+
+	protected function parsable($line)
+	{
+		$tags = [];
+
+		foreach ([$this->logic, $this->echo, $this->comment] as $tag)
+		{
+			$tags[] = preg_quote($tag[0], '/') . '|' . preg_quote($tag[1], '/');
+		}
+
+		$tags = implode('|', $tags);
+
+		return preg_match("/{$tags}/", $line, $match) === 1;
 	}
 
 	/**
-	 * Determines wheter a line should be parsed or not.
+	 * If there are many for loops on page
+	 * The index will become negative, since a - is
+	 * not a valid variable character, we replace that here.
 	 *
-	 * @param  string $line
+	 * @param  integer $index
 	 *
-	 * @return bool
+	 * @return string
 	 */
-	protected function parsable($line)
+	protected function createEmptyVariable($index)
 	{
-		return preg_match_all('/\{[{$%]{1,2}/', $line) > 0;
-	}
+		$empty = '$__empty_' . $index;
 
-	protected function indentPattern()
-	{
-		return "/" . $this->indentPattern . "/";
-	}
-
-	protected function getIndentation($line)
-	{
-		if (preg_match('/^\s+/', $line, $ws))
-		{
-			return preg_match_all($this->indentPattern(), $ws[0]);
-		}
-
-		return 0;
+		return str_replace('-', '_', $empty);
 	}
 }
