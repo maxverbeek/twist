@@ -13,7 +13,7 @@
 8|`{% if $books.length > 10 %}` | `<?php if (count($books) > 10): ?>`
 9|`{% if $books.length %}` | `<?php if (count($books)): ?>`
 10|`{{ $name or 'Max' }}` | `<?php echo isset($name) ? $name : 'Max'; ?>`
-11| `{% forif %} and {% or %}` | For loop, except if there is nothing to loop, the {% or %} block will be run.
+11| `{% forif %} and {% or %}` | For loop, except if there is nothing to loop, the {% or %} block will be run. -- UPDATE -- will probably have the `{% else %}` block always available.
 
 ##Notes
 1. Foreach loop.
@@ -28,8 +28,8 @@
 10. Ternary operator to have a fallback
 11.
 ```
-{% forif result in results %}
-	{{ result }}
+{% forif $result in $results %}
+	{{ $result }}
 {% or %}
 	There are no results :(
 ```
@@ -55,7 +55,7 @@ If I can pull it of, I'll try to make it simular to python, where unindenting en
 	Hey I am number {{ $i }}
 	This is the {{ $i }}<sup>th</sup> iteration
 
-{% for $title : context in books %}
+{% for $title : $context in $books %}
 	<div class="title">{{ $title }}</div>
 	<div class="context">
 		{% for $key : $value in $context %}

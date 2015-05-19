@@ -1,0 +1,7 @@
+
+#Ignore entire public dir (testing files)
+public/*
+
+#Except for the necessary files (index and htaccess)
+!public/index.php
+!public/.htaccess
