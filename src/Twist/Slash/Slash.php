@@ -16,6 +16,7 @@ class Slash
 		'parseEmptyStatements',
 		'parseEndStatements',
 		'parseEchoes',
+		'parseComments',
 	];
 
 	/**
@@ -114,20 +115,6 @@ class Slash
 		}
 
 		return $ending;
-	}
-
-	protected function parseEchoes($line)
-	{
-		list($open, $close) = array_map('preg_quote', $this->echo);
-
-		$callback = function ($matches)
-		{
-			$value = preg_replace('/^(?=\$)(.+?)(?:\s+or\s+)(.+?)$/', 'isset($1) ? $1 : $2', $matches[1]);
-
-			return "<?php echo htmlentities({$value}, ENT_QUOTES, \"UTF-8\"); ?>";
-		};
-
-		return preg_replace_callback("/{$open}[\t ]*(.+?)[\t ]*{$close}/", $callback, $line);
 	}
 
 	protected function parseLogicStatements($line)
@@ -263,6 +250,29 @@ class Slash
 		$pattern = "/{$open}{$ws}end{$ws}{$close}/";
 
 		return preg_replace_callback($pattern, $callback, $line);
+	}
+
+	protected function parseEchoes($line)
+	{
+		list($open, $close) = array_map('preg_quote', $this->echo);
+
+		$callback = function ($matches)
+		{
+			$value = preg_replace('/^(?=\$)(.+?)(?:\s+or\s+)(.+?)$/', 'isset($1) ? $1 : $2', $matches[1]);
+
+			return "<?php echo htmlentities({$value}, ENT_QUOTES, \"UTF-8\"); ?>";
+		};
+
+		return preg_replace_callback("/{$open}[\t ]*(.+?)[\t ]*{$close}/", $callback, $line);
+	}
+
+	protected function parseComments($line)
+	{
+		list($open, $close) = array_map('preg_quote', $this->comment);
+
+		$pattern = "/{$open}(.*?){$close}/";
+
+		return preg_replace($pattern, "<?php /* \\1 */ ?>", $line);
 	}
 
 	protected function parsable($line)
