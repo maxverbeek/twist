@@ -7,16 +7,24 @@ use Closure;
 class Slash
 {
 	/**
-	 * A list of tasks that resembles the compilation
+	 * A list of functions that compile a template globally
+	 *
+	 * @var  array
+	 */
+	protected $globalTasks = [
+		'parseComments',
+	];
+
+	/**
+	 * A list of functions that compile a line
 	 *
 	 * @var array
 	 */
-	protected $tasks = [
+	protected $lineTasks = [
 		'parseLogicStatements',
 		'parseEmptyStatements',
 		'parseEndStatements',
 		'parseEchoes',
-		'parseComments',
 	];
 
 	/**
@@ -81,20 +89,71 @@ class Slash
 
 	protected function parse($content)
 	{
-		$lines = preg_split('/[\r\n]+/', $content);
+		$content = $this->parseGlobal($content);
 
+		$lines = preg_split('/[\r\n]/', $content);
+
+		$this->parseExtends($lines);
+
+		return implode(PHP_EOL, $this->parseLines($lines));
+	}
+
+	protected function parseExtends($lines)
+	{
+		list($open, $close) = array_map('preg_quote', $this->logic);
+
+		$ws = '[\t ]*';
+
+		$pattern = "/^{$open}{$ws}extends (.*?){$ws}{$close}$/";
+
+		if (preg_match($pattern, $lines[0], $match))
+		{
+			$file = trim(array_shift($lines), '"\'');
+
+			$lines[] = "<?php $__env->make('{$file}', get_defined_vars()); ?>";
+		}
+	}
+
+	/**
+	 * Parse a whole string at once
+	 *
+	 * @param  string $content
+	 *
+	 * @return string
+	 */
+	protected function parseGlobal($content)
+	{
+		if (! $this->parsable($content)) return $content;
+
+		foreach ($this->globalTasks as $task)
+		{
+			$content = $this->{$task}($content);
+		}
+
+		return $content;
+	}
+
+	/**
+	 * Parse a string line by line
+	 *
+	 * @param  string $content
+	 *
+	 * @return string
+	 */
+	protected function parseLines($lines)
+	{
 		foreach ($lines as &$line)
 		{
 			if ($this->parsable($line))
 			{
-				foreach ($this->tasks as $task)
+				foreach ($this->lineTasks as $task)
 				{
 					$line = $this->{$task}($line);
 				}
 			}
 		}
 
-		return implode(PHP_EOL, $lines);
+		return $lines;
 	}
 
 	protected function pushEnding($ending)
@@ -126,7 +185,7 @@ class Slash
 			return $this->{'compile'.ucfirst($matches[2]).'Statements'}($matches[1]);
 		};
 
-		return preg_replace_callback("/{$open}[\t ]*((for|while|if|elseif|else)[\t ]+.*?)[\t ]*{$close}/", $callback, $line);
+		return preg_replace_callback("/{$open}[\t ]*((for|while|if|elseif|else|spaceless)[\t ]+.*?)[\t ]*{$close}/", $callback, $line);
 	}
 
 	protected function compileForStatements($statement)
@@ -215,6 +274,14 @@ class Slash
 		return '<?php else: ?>';
 	}
 
+	protected function compileSpacelessStatements($statement)
+	{
+		$ob_end = "<?php echo trim(preg_replace('/>\s+</', '><', ob_get_clean())); ?>";
+		$this->pushEnding($ob_end);
+
+		return '<?php ob_start(); ?>';
+	}
+
 	protected function parseEmptyStatements($line)
 	{
 		$callback = function ($match)
@@ -266,13 +333,13 @@ class Slash
 		return preg_replace_callback("/{$open}[\t ]*(.+?)[\t ]*{$close}/", $callback, $line);
 	}
 
-	protected function parseComments($line)
+	protected function parseComments($content)
 	{
 		list($open, $close) = array_map('preg_quote', $this->comment);
 
-		$pattern = "/{$open}(.*?){$close}/";
+		$pattern = "/{$open}(.*?){$close}/s";
 
-		return preg_replace($pattern, "<?php /* \\1 */ ?>", $line);
+		return preg_replace($pattern, "<?php /* \\1 */ ?>", $content);
 	}
 
 	protected function parsable($line)
