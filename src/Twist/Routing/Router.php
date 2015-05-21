@@ -84,21 +84,25 @@ class Router
 
 		$path = preg_replace_callback('/{(.+?)}/', function ($matches) use ($clauses, &$variables)
 		{
-			// We'll check if there is one of the default patterns provided.
+			// We'll check if there is a pattern given for the
+			// current URL segment.
 			if (strpos($matches[1], ':') !== false)
 			{
 				list($name, $pattern) = explode(':', $matches[1]);
 
-				$pattern = ':' . $pattern;
-
-				if (! array_key_exists($pattern, $this->patterns))
+				// We'll check if the pattern is one of the shorthand
+				// ones, if it is we'll set the pattern for the
+				// associated URL segment.
+				if (array_key_exists(':'.$pattern, $this->patterns))
 				{
-					throw new \InvalidArgumentException("Invalid pattern given for route parameter [{$name}]");
+					$variables[$name] = '('.$this->patterns[':'.$pattern].')';
 				}
 
+				// If it's not in the array we'll assume that a
+				// regular expression is provided instead.
 				else
 				{
-					$variables[$name] = "(".$this->patterns[$pattern].")";
+					$variables[$name] = "(".$pattern.")";
 				}
 			}
 
