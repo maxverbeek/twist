@@ -22,6 +22,7 @@ class Slash
 	 */
 	protected $lineTasks = [
 		'parseLogicStatements',
+		'parseFunctionStatements',
 		'parseEmptyStatements',
 		'parseEndStatements',
 		'parseEchoes',
@@ -98,19 +99,19 @@ class Slash
 		return implode(PHP_EOL, $this->parseLines($lines));
 	}
 
-	protected function parseExtends($lines)
+	protected function parseExtends(&$lines)
 	{
 		list($open, $close) = array_map('preg_quote', $this->logic);
 
-		$ws = '[\t ]*';
+		$ws = '[\\t ]*';
 
-		$pattern = "/^{$open}{$ws}extends (.*?){$ws}{$close}$/";
+		$pattern = "/^{$open}{$ws}extends ((['\"])(.*?)\\2){$ws}{$close}/";
 
 		if (preg_match($pattern, $lines[0], $match))
 		{
-			$file = trim(array_shift($lines), '"\'');
-
-			$lines[] = "<?php $__env->make('{$file}', get_defined_vars()); ?>";
+			array_shift($lines);
+			$file = $match[1];
+			$lines[] = "<?php \$__env->make({$file}, get_defined_vars()); ?>";
 		}
 	}
 
@@ -185,7 +186,7 @@ class Slash
 			return $this->{'compile'.ucfirst($matches[2]).'Statements'}($matches[1]);
 		};
 
-		return preg_replace_callback("/{$open}[\t ]*((for|while|if|elseif|else|spaceless)[\t ]+.*?)[\t ]*{$close}/", $callback, $line);
+		return preg_replace_callback("/{$open}[\\t ]*((for|while|if|elseif|else|spaceless)[\\t ]+.*?)[\\t ]*{$close}/", $callback, $line);
 	}
 
 	protected function compileForStatements($statement)
@@ -198,7 +199,7 @@ class Slash
 			return $this->compileFor($statement, $match[1], $match[2]);
 		}
 
-		elseif (preg_match($pattern = "/for ({$var})(?:[\t ]*:[\t ]*({$var}))? in (.*)/", $statement, $match))
+		elseif (preg_match($pattern = "/for ({$var})(?:[\\t ]*:[\\t ]*({$var}))? in (.*)/", $statement, $match))
 		{
 			return $this->compileForeach($statement, $match);
 		}
@@ -282,6 +283,52 @@ class Slash
 		return '<?php ob_start(); ?>';
 	}
 
+	protected function parseFunctionStatements($line)
+	{
+		$callback = function ($match)
+		{
+			$function = ucfirst($match[1]);
+			$name     = $match[2] . $match[3] . $match[2];
+			$default  = isset($match[5]) ? $match[4] . $match[5] . $match[4] : '';
+
+			return $this->{"compile{$function}Statements"}($name, $default);
+		};
+
+		list($open, $close) = array_map('preg_quote', $this->logic);
+
+		$ws = '[\\t ]*';
+		$functions = 'yield|block|include';
+
+		$pattern = "/{$open}{$ws}({$functions}){$ws}(['\"])(.*?)\\2{$ws}(?:,{$ws}(['\"])(.*?)\\4)?{$ws}{$close}/";
+
+		return preg_replace_callback($pattern, $callback, $line);
+	}
+
+	protected function compileYieldStatements($name, $default = '')
+	{
+		if (! $default) $default = "''";
+		return "<?php \$__env->yieldBlock({$name}, {$default}); ?>";
+	}
+
+	protected function compileBlockStatements($name, $content = '')
+	{
+		if (! $content)
+		{
+			$content = "''";
+			$ending = "<?php \$__env->endBlock(); ?>";
+			$this->pushEnding($ending);
+
+			return "<?php \$__env->startBlock({$name}, {$content}); ?>";
+		}
+
+		return "<?php \$__env->addBlock({$name}, {$content}); ?>";
+	}
+
+	protected function compileIncludeStatements($name)
+	{
+		return "<?php \$__env->make({$name}, get_defined_vars()); ?>";
+	}
+
 	protected function parseEmptyStatements($line)
 	{
 		$callback = function ($match)
@@ -296,7 +343,7 @@ class Slash
 
 		list($open, $close) = array_map('preg_quote', $this->logic);
 
-		$ws = '[\t ]*';
+		$ws = '[\\t ]*';
 
 		$pattern = "/{$open}{$ws}empty{$ws}{$close}/";
 
@@ -312,7 +359,7 @@ class Slash
 
 		list($open, $close) = array_map('preg_quote', $this->logic);
 
-		$ws = '[\t ]*';
+		$ws = '[\\t ]*';
 
 		$pattern = "/{$open}{$ws}end{$ws}{$close}/";
 
@@ -358,7 +405,7 @@ class Slash
 
 	/**
 	 * If there are many for loops on page
-	 * The index will become negative, since a - is
+	 * The index will become negative. Since a '-' is
 	 * not a valid variable character, we replace that here.
 	 *
 	 * @param  integer $index
