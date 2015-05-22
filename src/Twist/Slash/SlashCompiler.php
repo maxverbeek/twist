@@ -79,7 +79,7 @@ class SlashCompiler
 			$result .= is_array($token) ? $this->parseToken($token) : $token;
 		}
 
-		return ltrim($result, PHP_EOL);
+		return $result;
 	}
 
 	/**
