@@ -74,12 +74,12 @@ class SlashCompiler
 
 		$result = '';
 
-		foreach (token_get_all($slash) as &$token)
+		foreach (token_get_all($slash) as $token)
 		{
 			$result .= is_array($token) ? $this->parseToken($token) : $token;
 		}
 
-		return ltrim($result, PHP_EOL."\t");
+		return $result;
 	}
 
 	/**
@@ -261,13 +261,6 @@ class SlashCompiler
 		elseif (preg_match($pattern = "/for ({$var})(?:[\\t ]*:[\\t ]*({$var}))? in (.*)/", $statement, $match))
 		{
 			return $this->compileForeach($statement, $match);
-		}
-
-		else
-		{
-			echo "Iets is pittig verneukt en het is niet jurryts moeder";
-			echo $statement . '  ' . $pattern;
-			echo PHP_EOL;
 		}
 	}
 

@@ -32,6 +32,6 @@ class PhpEngine implements EngineInterface
 			throw $e;
 		}
 
-		return ltrim(ob_get_clean(), PHP_EOL);
+		return trim(ob_get_clean(), "\r\n");
 	}
 }
