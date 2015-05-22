@@ -6,6 +6,11 @@ use Closure;
 
 class SlashCompiler
 {
+	/**
+	 * Holds the extension of the slash files.
+	 *
+	 * @constant string
+	 */
 	const EXTENSION = '.slash';
 
 	/**
@@ -77,6 +82,13 @@ class SlashCompiler
 		return $result;
 	}
 
+	/**
+	 * Compile a token returned by the PHP Zend Lexical scanner
+	 *
+	 * @param  array $token
+	 *
+	 * @return string
+	 */
 	protected function parseToken($token)
 	{
 		list($id, $content) = $token;
@@ -90,6 +102,13 @@ class SlashCompiler
 		return $content;
 	}
 
+	/**
+	 * Compile a string of text to valid PHP
+	 *
+	 * @param  string $content
+	 *
+	 * @return string
+	 */
 	protected function parse($content)
 	{
 		$content = $this->parseGlobal($content);
@@ -101,6 +120,13 @@ class SlashCompiler
 		return implode(PHP_EOL, $this->parseLines($lines));
 	}
 
+	/**
+	 * Compile the first line, and check if the template should be extended
+	 *
+	 * @param  array &$lines
+	 *
+	 * @return array
+	 */
 	protected function parseExtends(&$lines)
 	{
 		list($open, $close) = array_map('preg_quote', $this->logic);
@@ -111,6 +137,10 @@ class SlashCompiler
 
 		if (preg_match($pattern, $lines[0], $match))
 		{
+			// If there is an "extends" tag, remove the first line, and
+			// include the extended template at the bottom of the page.
+			// this gives the dev a chance to define stuff here, and have
+			// it executed in the file below.
 			array_shift($lines);
 			$file = $match[1];
 			$lines[] = "<?php echo \$__env->make({$file}, get_defined_vars()); ?>";
@@ -159,11 +189,23 @@ class SlashCompiler
 		return $lines;
 	}
 
+	/**
+	 * Append an ending tag to the end-tag array
+	 *
+	 * @param  Closure|string $ending
+	 *
+	 * @return void
+	 */
 	protected function pushEnding($ending)
 	{
 		$this->endings[] = $ending;
 	}
 
+	/**
+	 * Pop the last ending of the end-tag array and return it
+	 *
+	 * @return string
+	 */
 	protected function popEnding()
 	{
 		$ending = array_pop($this->endings);
@@ -179,6 +221,14 @@ class SlashCompiler
 		return $ending;
 	}
 
+	/**
+	 * Handles for, while, if's and spaceless tags and sends them to
+	 * their respective methods
+	 *
+	 * @param  string $line
+	 *
+	 * @return string
+	 */
 	protected function parseLogicStatements($line)
 	{
 		list($open, $close) = array_map('preg_quote', $this->logic);
@@ -191,6 +241,13 @@ class SlashCompiler
 		return preg_replace_callback("/{$open}[\\t ]*((for|while|if|elseif|else|spaceless)[\\t ]+.*?)[\\t ]*{$close}/", $callback, $line);
 	}
 
+	/**
+	 * Select a for loop, and decide whether it is a for or a foreach loop
+	 *
+	 * @param  string $statement
+	 *
+	 * @return string
+	 */
 	protected function compileForStatements($statement)
 	{
 		// PHP wiki (language.variables.basic)
@@ -214,6 +271,15 @@ class SlashCompiler
 		}
 	}
 
+	/**
+	 * Compile a for loop to native PHP
+	 *
+	 * @param  string $statement
+	 * @param  string $var
+	 * @param  string $to
+	 *
+	 * @return string
+	 */
 	protected function compileFor($statement, $var, $to)
 	{
 		$this->pushEnding('<?php endfor; ?>');
@@ -221,6 +287,14 @@ class SlashCompiler
 		return "<?php for ({$var} = 1; {$var} <= {$to}; {$var}++): ?>";
 	}
 
+	/**
+	 * Compile a foreach loop to native PHP
+	 *
+	 * @param  string $statement
+	 * @param  array $matches
+	 *
+	 * @return string
+	 */
 	protected function compileForeach($statement, $matches)
 	{
 		if (isset($matches[3])) list(, $key, $value, $array) = $matches;
@@ -239,6 +313,13 @@ class SlashCompiler
 		return "<?php {$empty} = true; foreach ({$array} as {$iterated}): {$empty} = false; ?>";
 	}
 
+	/**
+	 * Compile a while loop to native PHP
+	 *
+	 * @param  string $statement
+	 *
+	 * @return string
+	 */
 	protected function compileWhileStatements($statement)
 	{
 		$callback = function ($match)
@@ -253,6 +334,13 @@ class SlashCompiler
 		return preg_replace_callback($pattern, $callback, $statement);
 	}
 
+	/**
+	 * Compile an if statement to native PHP
+	 *
+	 * @param  string $statement
+	 *
+	 * @return string
+	 */
 	protected function compileIfStatements($statement)
 	{
 		$callback = function ($match)
@@ -267,16 +355,37 @@ class SlashCompiler
 		return preg_replace_callback($pattern, $callback, $statement);
 	}
 
+	/**
+	 * Compile an elseif statement to native PHP
+	 *
+	 * @param  string $statement
+	 *
+	 * @return string
+	 */
 	protected function compileElseifStatements($statement)
 	{
 		return preg_replace("/elseif (.*)/", "<?php elseif (\\1): ?>", $statement);
 	}
 
+	/**
+	 * Compile an else statement to native PHP
+	 *
+	 * @param  string $statement
+	 *
+	 * @return string
+	 */
 	protected function compileElseStatements($statement)
 	{
 		return '<?php else: ?>';
 	}
 
+	/**
+	 * Compile a spaceless tag to native PHP
+	 *
+	 * @param  string $statement
+	 *
+	 * @return string
+	 */
 	protected function compileSpacelessStatements($statement)
 	{
 		$ob_end = "<?php echo trim(preg_replace('/>\s+</', '><', ob_get_clean())); ?>";
@@ -285,6 +394,13 @@ class SlashCompiler
 		return '<?php ob_start(); ?>';
 	}
 
+	/**
+	 * Compiles yield, block and include statements using their respective methods
+	 *
+	 * @param  string $line
+	 *
+	 * @return string
+	 */
 	protected function parseFunctionStatements($line)
 	{
 		$callback = function ($match)
@@ -306,12 +422,28 @@ class SlashCompiler
 		return preg_replace_callback($pattern, $callback, $line);
 	}
 
+	/**
+	 * Compiles all of the yield statements down to yieldBlock calls
+	 *
+	 * @param  string $name
+	 * @param  string $default
+	 *
+	 * @return string
+	 */
 	protected function compileYieldStatements($name, $default = '')
 	{
 		if (! $default) $default = "''";
 		return "<?php echo \$__env->yieldBlock({$name}, {$default}); ?>";
 	}
 
+	/**
+	 * Compile all of the block statements down to startBlock calls
+	 *
+	 * @param  string $name
+	 * @param  string $content
+	 *
+	 * @return string
+	 */
 	protected function compileBlockStatements($name, $content = '')
 	{
 		if (! $content)
@@ -326,11 +458,25 @@ class SlashCompiler
 		return "<?php \$__env->addBlock({$name}, {$content}); ?>";
 	}
 
+	/**
+	 * Compile Include statements to calls to the make method.
+	 *
+	 * @param  string $name
+	 *
+	 * @return string
+	 */
 	protected function compileIncludeStatements($name)
 	{
 		return "<?php echo \$__env->make({$name}, get_defined_vars()); ?>";
 	}
 
+	/**
+	 * Compile empty statements for loops to native PHP if-statements
+	 *
+	 * @param  string $line
+	 *
+	 * @return string
+	 */
 	protected function parseEmptyStatements($line)
 	{
 		$callback = function ($match)
@@ -352,6 +498,14 @@ class SlashCompiler
 		return preg_replace_callback($pattern, $callback, $line);
 	}
 
+	/**
+	 * Handles all of the end tags, and
+	 * applies all of the listeners on them
+	 *
+	 * @param  string $line
+	 *
+	 * @return string
+	 */
 	protected function parseEndStatements($line)
 	{
 		$callback = function ($match)
@@ -368,6 +522,14 @@ class SlashCompiler
 		return preg_replace_callback($pattern, $callback, $line);
 	}
 
+	/**
+	 * Compile all of the slash echoes on a line to
+	 * native PHP escaped echoes using htmlentities
+	 *
+	 * @param  string $line
+	 *
+	 * @return string
+	 */
 	protected function parseEchoes($line)
 	{
 		list($open, $close) = array_map('preg_quote', $this->echo);
@@ -382,6 +544,13 @@ class SlashCompiler
 		return preg_replace_callback("/{$open}[\t ]*(.+?)[\t ]*{$close}/", $callback, $line);
 	}
 
+	/**
+	 * Compile comments to native PHP comments
+	 *
+	 * @param  string $content
+	 *
+	 * @return string
+	 */
 	protected function parseComments($content)
 	{
 		list($open, $close) = array_map('preg_quote', $this->comment);
@@ -391,6 +560,13 @@ class SlashCompiler
 		return preg_replace($pattern, "<?php /* \\1 */ ?>", $content);
 	}
 
+	/**
+	 * Determine if a line should be parsed or not
+	 *
+	 * @param  string $line
+	 *
+	 * @return bool
+	 */
 	protected function parsable($line)
 	{
 		$tags = [];
@@ -405,6 +581,11 @@ class SlashCompiler
 		return preg_match("/{$tags}/", $line, $match) === 1;
 	}
 
+	/**
+	 * Make a pattern to match a parent tag
+	 *
+	 * @return string
+	 */
 	public function getParentPattern()
 	{
 		list($open, $close) = array_map('preg_quote', $this->logic);
