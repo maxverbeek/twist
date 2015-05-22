@@ -15,6 +15,8 @@ class PhpEngine implements EngineInterface
 
 		extract($__data);
 
+		ob_start();
+
 		try
 		{
 			require $__path;
@@ -29,5 +31,7 @@ class PhpEngine implements EngineInterface
 
 			throw $e;
 		}
+
+		return ltrim(ob_get_clean(), PHP_EOL);
 	}
 }
