@@ -455,7 +455,7 @@ class SlashCompiler
 			return "<?php \$__env->startBlock({$name}); ?>";
 		}
 
-		return "<?php \$__env->addBlock({$name}, {$content}); ?>";
+		return "<?php \$__env->inject({$name}, {$content}); ?>";
 	}
 
 	/**

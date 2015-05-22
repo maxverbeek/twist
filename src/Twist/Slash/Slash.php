@@ -133,15 +133,29 @@ class Slash extends PhpEngine implements EngineInterface
 	 */
 	public function startBlock($name, $content = '')
 	{
-		if ($content)
+		if ($content === '')
 		{
-			$this->blocks[$name] = $content;
+			if (ob_start())	$this->blockStack[] = $name;
 		}
 
 		else
 		{
-			if (ob_start())	$this->blockStack[] = $name;
+			$this->inject($name, $content);
 		}
+	}
+
+	public function inject($name, $content = '')
+	{
+		if (isset($this->blocks[$name]))
+		{
+			$content = preg_replace(
+				$this->compiler->getParentPattern(),
+				$this->blocks[$name],
+				$content
+			);
+		}
+
+		$this->blocks[$name] = $content;
 	}
 
 	/**
