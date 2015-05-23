@@ -2,5 +2,5 @@
 
 interface EngineInterface
 {
-	public function get($data, array $path = array());
+	public function get($path, array $data = array());
 }

@@ -2,27 +2,34 @@
 
 class Manager
 {
-	/**
-	 * ViewResolver, used to locate the views
-	 *
-	 * @var \Twist\View\ViewResolver
-	 */
+	protected $environment;
+
 	protected $resolver;
 
-	public function __construct(ViewResolver $resolver)
+	protected $path = '';
+
+	public function __construct(ViewResolver $resolver, Environment $environment)
 	{
 		$this->resolver = $resolver;
+		$this->resolver->setManager($this);
+		$this->environment = $environment;
+		$this->environment->setManager($this);
 	}
 
-	/**
-	 * Return the contents of a view
-	 *
-	 * @return string
-	 */
-	public function make($view, $data = array())
+	public function make($viewname, $data = [])
 	{
-		$file = $this->resolver->find($file);
+		$view = $this->resolver->resolve($this->path . $viewname, $data);
 
-		$engine = $this->resolver->getEngine($view);
+		if (! $view)
+		{
+			throw new ViewNotFoundException("View [$viewname] could not be found.");
+		}
+
+		return $view;
+	}
+
+	public function getEnvironment()
+	{
+		return $this->environment;
 	}
 }

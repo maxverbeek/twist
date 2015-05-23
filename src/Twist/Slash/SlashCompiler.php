@@ -460,7 +460,7 @@ class SlashCompiler
 	 */
 	protected function compileIncludeStatements($name)
 	{
-		return "<?php echo \$__env->make({$name}, get_defined_vars()); ?>";
+		return "<?php echo \$__env->make({$name}, get_defined_vars())->render(); ?>";
 	}
 
 	/**

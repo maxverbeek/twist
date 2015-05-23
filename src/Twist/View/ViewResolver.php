@@ -4,112 +4,72 @@ use Closure;
 
 class ViewResolver
 {
-	/**
-	 * A list of possible extensions
-	 *
-	 * @var array
-	 */
-	protected $extensions = [];
+	protected $path;
 
-	/**
-	 * A list to map an extension to an array
-	 *
-	 * @var [type]
-	 */
 	protected $engines = [];
 
-	/**
-	 * Known existing views
-	 *
-	 * @var array
-	 *
-	 */
-	protected $views = [];
+	protected $extensions = [];
 
-	public function __construct($paths)
+	public function __construct($path)
 	{
-		$this->extensions = $extensions;
-		$this->paths = $paths;
+		$this->path = rtrim($path, '\\/') . '/';
 	}
 
-	public function find($view)
+	public function setManager(Manager $manager)
 	{
-		$view = str_replace('.', '/', $view);
+		$this->manager = $manager;
+	}
 
-		// If we've already found the view, don't look for
-		// it again.
-		if (isset($this->views[$view]))
-		{
-			return $this->views[$view];
-		}
+	public function getEnvironment()
+	{
+		return $this->manager->getEnvironment();
+	}
 
-		foreach ($this->getPossibleViewNames($view) as $name)
+	public function resolve($view, $data)
+	{
+		$paths = $this->getPossiblePaths($this->normalizeName($view));
+
+		foreach ($paths as $extension => $path)
 		{
-			foreach ((array) $this->paths as $path)
+			if (file_exists($path))
 			{
-				if (file_exists($path . $name))
-				{
-					return $this->views[$view] = $path . $name;
-				}
+				return new View($view, $data, $path, $this->getEngine($extension), $this->manager, $this->getEnvironment());
 			}
 		}
-
-		return false;
 	}
 
-	/**
-	 * Appends every extension to a view to get the possible file name.
-	 *
-	 * @param  string $view
-	 *
-	 * @return array
-	 */
-	protected function getPossibleViewNames($view)
+	protected function normalizeName($view)
 	{
-		return array_map(function ($extension) use ($view)
-		{
-			return $view . $extension;
-		}, $this->extensions);
+		return $this->path . str_replace('.', '/', $view);
 	}
 
-	/**
-	 * Map an extension to an engine
-	 *
-	 * @param  string $extension
-	 * @param  \Twist\View\EngineInterface|Closure $engine
-	 *
-	 * @return void
-	 */
+	protected function getPossiblePaths($path)
+	{
+		$result = [];
+
+		foreach ($this->extensions as $extension)
+		{
+			$result[$extension] = $path . $extension;
+		}
+
+		return $result;
+	}
+
+	protected function getEngine($extension)
+	{
+		$engine = $this->engines[$extension];
+
+		if ($engine instanceof Closure)
+		{
+			return $engine();
+		}
+
+		return $engine;
+	}
+
 	public function register($extension, $engine)
 	{
-		$this->extensions = $extension;
+		$this->extensions[] = $extension;
 		$this->engines[$extension] = $engine;
-	}
-
-	/**
-	 * Get an instance of the engine needed for the view
-	 *
-	 * @param  string $view
-	 *
-	 * @return \Twist\View\EngineInterface
-	 */
-	public function getEngine($view)
-	{
-		if ($path = $this->find($view))
-		{
-			$extension = substr($view, 0, strlen($view));
-
-			if (isset($this->engines[$extension]))
-			{
-				$engine = $this->engines[$extension];
-
-				if ($engine instanceof Closure)
-				{
-					$engine = $engine();
-				}
-
-				return $engine;
-			}
-		}
 	}
 }

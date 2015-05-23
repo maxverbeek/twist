@@ -6,6 +6,9 @@ class PhpEngine implements EngineInterface
 {
 	public function get($path, array $data = array())
 	{
+		if (isset($data['__path'])) unset($data['__path']);
+		if (isset($data['__data'])) unset($data['__data']);
+
 		return $this->createContents($path, $data);
 	}
 
