@@ -143,7 +143,7 @@ class SlashCompiler
 			// it executed in the file below.
 			array_shift($lines);
 			$file = $match[1];
-			$lines[] = "<?php echo \$__env->make({$file}, get_defined_vars()); ?>";
+			$lines[] = "<?php echo \$__env->includeView({$file}, get_defined_vars()); ?>";
 		}
 	}
 
@@ -425,7 +425,7 @@ class SlashCompiler
 	 */
 	protected function compileYieldStatements($name, $default = '')
 	{
-		$parent = addcslashes($this->getParentPattern(), '\\{}[]');
+		$parent = addcslashes($this->getParentPattern(), '\'');
 		if (! $default) $default = "''";
 		return "<?php echo \$__env->yieldBlock({$name}, {$default}, '{$parent}'); ?>";
 	}
@@ -440,7 +440,7 @@ class SlashCompiler
 	 */
 	protected function compileBlockStatements($name, $content = '')
 	{
-		$parent = addcslashes($this->getParentPattern(), '\\{}[]');
+		$parent = addcslashes($this->getParentPattern(), '\'');
 
 		if (! $content)
 		{

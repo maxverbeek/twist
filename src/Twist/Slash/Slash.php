@@ -4,18 +4,18 @@ use Twist\View\PhpEngine;
 
 class Slash extends PhpEngine
 {
-	public function __construct(SlashCompiler $compiler, $cachepath, $cache = true)
+	public function __construct(SlashCompiler $compiler, $cachepath, $forcecompile = false)
 	{
 		$this->compiler = $compiler;
 		$this->cachepath = rtrim($cachepath, '\\/') . '/';
-		$this->cache = $cache;
+		$this->forcecompile = $forcecompile;
 	}
 
 	public function get($path, array $data = array())
 	{
 		$cache = $this->getCachePath($path);
 
-		if (! $this->cache || (! file_exists($cache) || $this->cacheOUtdated($path, $cache)))
+		if ($this->forcecompile || (! file_exists($cache) || $this->cacheOutdated($path, $cache)))
 		{
 			$this->recompile($path, $cache);
 		}
