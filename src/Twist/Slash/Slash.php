@@ -30,7 +30,6 @@ class Slash extends PhpEngine
 
 	protected function getCachePath($path)
 	{
-		echo $path;
 		return $this->cachepath . md5($path);
 	}
 
