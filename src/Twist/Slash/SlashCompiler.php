@@ -425,8 +425,9 @@ class SlashCompiler
 	 */
 	protected function compileYieldStatements($name, $default = '')
 	{
+		$parent = addcslashes($this->getParentPattern(), '\\{}[]');
 		if (! $default) $default = "''";
-		return "<?php echo \$__env->yieldBlock({$name}, {$default}); ?>";
+		return "<?php echo \$__env->yieldBlock({$name}, {$default}, '{$parent}'); ?>";
 	}
 
 	/**
@@ -439,16 +440,17 @@ class SlashCompiler
 	 */
 	protected function compileBlockStatements($name, $content = '')
 	{
+		$parent = addcslashes($this->getParentPattern(), '\\{}[]');
+
 		if (! $content)
 		{
-			$content = "''";
-			$ending = "<?php \$__env->endBlock(); ?>";
+			$ending = "<?php \$__env->endBlock('{$parent}'); ?>";
 			$this->pushEnding($ending);
 
-			return "<?php \$__env->startBlock({$name}); ?>";
+			return "<?php \$__env->startBlock({$name}, '', '{$parent}'); ?>";
 		}
 
-		return "<?php \$__env->inject({$name}, {$content}); ?>";
+		return "<?php \$__env->inject({$name}, {$content}, '{$parent}'); ?>";
 	}
 
 	/**
@@ -460,7 +462,8 @@ class SlashCompiler
 	 */
 	protected function compileIncludeStatements($name)
 	{
-		return "<?php echo \$__env->make({$name}, get_defined_vars())->render(); ?>";
+
+		return "<?php echo \$__env->includeView({$name}, get_defined_vars()); ?>";
 	}
 
 	/**

@@ -2,7 +2,7 @@
 
 use Closure;
 
-class ViewResolver
+class ViewFinder
 {
 	protected $path;
 
@@ -15,17 +15,7 @@ class ViewResolver
 		$this->path = rtrim($path, '\\/') . '/';
 	}
 
-	public function setManager(Manager $manager)
-	{
-		$this->manager = $manager;
-	}
-
-	public function getEnvironment()
-	{
-		return $this->manager->getEnvironment();
-	}
-
-	public function resolve($view, $data)
+	public function find($view)
 	{
 		$paths = $this->getPossiblePaths($this->normalizeName($view));
 
@@ -33,7 +23,7 @@ class ViewResolver
 		{
 			if (file_exists($path))
 			{
-				return new View($view, $data, $path, $this->getEngine($extension), $this->manager, $this->getEnvironment());
+				return [$this->views[$view] = $path, $extension];
 			}
 		}
 	}
@@ -55,21 +45,8 @@ class ViewResolver
 		return $result;
 	}
 
-	protected function getEngine($extension)
-	{
-		$engine = $this->engines[$extension];
-
-		if ($engine instanceof Closure)
-		{
-			return $engine();
-		}
-
-		return $engine;
-	}
-
-	public function register($extension, $engine)
+	public function addExtension($extension)
 	{
 		$this->extensions[] = $extension;
-		$this->engines[$extension] = $engine;
 	}
 }
