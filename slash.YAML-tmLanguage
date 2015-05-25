@@ -1,0 +1,114 @@
+# [PackageDev] target_format: plist, ext: tmLanguage
+---
+name: Slash
+scopeName: text.html
+fileTypes: [slash]
+uuid: 0da65be4-5aac-4b8f-8071-1aadb970b8d9
+
+repository:
+  variables:
+    match: \$[a-zA-Z_][a-zA-Z0-9_]*
+    name: variable.other.slash
+
+  escaped:
+    match: \\[^\w]
+    name: constant.character.escape.slash
+
+  SingleQuotedStrings:
+    begin: \'
+    end: \'
+    name: string.quoted.single.slash
+    contentName: string.quoted.single.slash
+    patterns:
+    - include: '#escaped'
+
+  DoubleQuotedStrings:
+    begin: \"
+    end: \"
+    name: string.quoted.double.slash
+    contentName: string.quoted.single.slash
+    patterns:
+    - include: '#escaped'
+
+  numbers:
+    match: \d+
+    name: constant.numeric.slash
+
+  booleans:
+    match: true|false
+    name: constant.language.slash
+
+  ObjectOperator:
+    match: ->
+    name: keyword.operator.class.slash
+
+  comparison:
+    match: ===?|>|<|<=|>=
+    name: keyword.operator.comparison.slash
+
+  assignment:
+    match: '[-+]?='
+    name: keyword.operator.assignment.slash
+
+  IncrementDecrement:
+    match: \+\+|--
+    name: keyword.operator.increment-decrement.slash
+
+  functions:
+    match: '[a-zA-Z_][a-zA-Z_0-9]*'
+    name: meta.function-call.slash
+
+patterns:
+- comment: Comments {# like this #}
+  name: comment.block.slash
+  begin: \{\#
+  end: \#\}
+
+- comment: Logic stuff
+  name: punctuation.block.tag.slash
+  begin: '\{%'
+  end: '%\}'
+
+  patterns:
+  - comment: Keywords
+    # Negative lookahead, to not match if there is a ( after a keyword.
+    # This becouse there are functions like end() and empty()
+    match: (for|in|while|elseif|if|else|empty|extends|include|block|yield|spaceless|end)(?![\t ]*\()
+    name: keyword.control.slash
+
+    # Default PHP stuff
+  - include: '#variables'
+  - include: '#SingleQuotedStrings'
+  - include: '#DoubleQuotedStrings'
+  - include: '#numbers'
+  - include: '#booleans'
+  - include: '#ObjectOperator'
+  - include: '#comparison'
+  - include: '#assignment'
+  - include: '#IncrementDecrement'
+  - include: '#functions'
+
+
+- comment: Echoes {{ like so }}
+  name: punctuation.echo.tag.slash
+  begin: \{\{
+  end: \}\}
+  patterns:
+  - comment: Keyword (or)
+    match: or
+    name: keyword.control.slash
+
+    # Default PHP stuff
+  - include: '#variables'
+  - include: '#SingleQuotedStrings'
+  - include: '#DoubleQuotedStrings'
+  - include: '#numbers'
+  - include: '#booleans'
+  - include: '#ObjectOperator'
+  - include: '#comparison'
+  - include: '#assignment'
+  - include: '#IncrementDecrement'
+  - include: '#functions'
+
+- include: text.html.basic
+...
