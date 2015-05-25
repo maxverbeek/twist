@@ -290,9 +290,9 @@ class SlashCompiler
 	 */
 	protected function compileForeach($statement, $matches)
 	{
-		if (isset($matches[3])) list(, $key, $value, $array) = $matches;
+		if (! empty($matches[2])) list(, $key, $value, $array) = $matches;
 
-		else list(, $value, $array) = $matches;
+		else list(, $value, ,$array) = $matches;
 
 		$empty = $this->createEmptyVariable($this->foreachCount++);
 
