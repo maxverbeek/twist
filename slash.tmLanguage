@@ -165,6 +165,14 @@
 					<key>include</key>
 					<string>#escaped</string>
 				</dict>
+				<dict>
+					<key>include</key>
+					<string>#wrappedVariables</string>
+				</dict>
+				<dict>
+					<key>include</key>
+					<string>#variables</string>
+				</dict>
 			</array>
 		</dict>
 		<key>IncrementDecrement</key>
@@ -247,6 +255,29 @@
 			<string>\$[a-zA-Z_][a-zA-Z0-9_]*</string>
 			<key>name</key>
 			<string>variable.other.slash</string>
+		</dict>
+		<key>wrappedVariables</key>
+		<dict>
+			<key>captures</key>
+			<dict>
+				<key>1</key>
+				<dict>
+					<key>name</key>
+					<string>punctuation.definition.variable.slash</string>
+				</dict>
+				<key>2</key>
+				<dict>
+					<key>name</key>
+					<string>variable.other.slash</string>
+				</dict>
+				<key>3</key>
+				<dict>
+					<key>name</key>
+					<string>punctuation.definition.variable.slash</string>
+				</dict>
+			</dict>
+			<key>match</key>
+			<string>(\{)(\$[a-zA-Z_][a-zA-Z0-9_]*)(\})</string>
 		</dict>
 	</dict>
 	<key>scopeName</key>

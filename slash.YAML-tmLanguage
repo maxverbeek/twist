@@ -6,6 +6,13 @@ fileTypes: [slash]
 uuid: 0da65be4-5aac-4b8f-8071-1aadb970b8d9
 
 repository:
+  wrappedVariables:
+    match: (\{)(\$[a-zA-Z_][a-zA-Z0-9_]*)(\})
+    captures:
+      '1': {name: punctuation.definition.variable.slash}
+      '2': {name: variable.other.slash}
+      '3': {name: punctuation.definition.variable.slash}
+
   variables:
     match: \$[a-zA-Z_][a-zA-Z0-9_]*
     name: variable.other.slash
@@ -29,6 +36,8 @@ repository:
     contentName: string.quoted.single.slash
     patterns:
     - include: '#escaped'
+    - include: '#wrappedVariables'
+    - include: '#variables'
 
   numbers:
     match: \d+
